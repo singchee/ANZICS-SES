@@ -40,7 +40,7 @@ df1 = df1 %>%
 	filter(TREAT_LMT != "3" & TREAT_LMT != "4") %>%
     filter(ICU_SRCE != 5 & ICU_SRCE != 6) %>%   
 	filter(ICU_OUTCM != 5)  %>%   
-	filter( !(PLAN_ICU == 1 | ELECT == 1) )
+	filter( !(PLAN_ICU == 1 | ELECT == 1 | ELECT_SURG == 1) )
     
         
 Remoteness=Remoteness %>% distinct(POSTCODE, .keep_all=TRUE)
