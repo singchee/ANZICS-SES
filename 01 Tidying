@@ -7,7 +7,7 @@ SEIFAscore = SEIFAscore %>%
 
 
 
-df1= APD%>%
+df = APD%>%
     select(c(PatientID, HospitalClassification, 
              JurisdictionName,postcode,SiteID, AGE, ELECT, SEX,AP3DIAG, AP3_SUBCODE, ELECT_SURG, READMITTED,
              , TREAT_LMT, PLAN_ICU, ECMO_IND, INV_IND, RENAL_IND, INOTROP_IND, 
@@ -16,6 +16,166 @@ df1= APD%>%
              ANZRODIsSMR, 
              ANZRODRiskofDeath_old, 
              Apache3Score, Apache3IsSMR, Apache3RiskOfDeath, FRAILTY))
+
+#manage NA
+df1 <- df %>%
+    mutate(TREAT_LMT = as.character(TREAT_LMT)) %>%
+    
+    # Note: AGE, ICU_OUTCM, and ICU_SRCE columns are untouched (retains NAs, per request)
+    
+    # TREAT_LMT: Treat as other than "3" or "4" (NA -> "0")
+    mutate(TREAT_LMT = replace_na(TREAT_LMT, "0")) %>%
+    
+    # ELECT/PLAN_ICU/ELECT_SURG: Treat as 0 (NA -> 0)
+    # Ensure these are treated as numeric/double
+    mutate(PLAN_ICU = replace_na(as.numeric(PLAN_ICU), 0),
+           ELECT = replace_na(as.numeric(ELECT), 0),
+           ELECT_SURG = replace_na(as.numeric(ELECT_SURG), 0))
+
+#filter
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(tibble)
+
+# Assuming 'df1' is your data frame (or APD)
+data_flow <- df1 
+
+# --- 1. INITIAL SETUP & IMPUTATION (Fixed TREAT_LMT Type Error and Hybrid NA Logic) ---
+
+total_initial_rows <- nrow(data_flow)
+
+# Create a temporary data frame with imputed values for fields where NA should pass the filter
+data_flow_imputed <- data_flow %>%
+    # **TREAT_LMT FIX:** Convert to character before imputation
+    mutate(TREAT_LMT = as.character(TREAT_LMT)) %>%
+    
+    # TREAT_LMT: Treat as other than "3" or "4" (NA -> "0")
+    mutate(TREAT_LMT = replace_na(TREAT_LMT, "0")) %>%
+    
+    # ELECT/PLAN_ICU/ELECT_SURG: Treat as 0 (NA -> 0)
+    mutate(PLAN_ICU = replace_na(as.numeric(PLAN_ICU), 0),
+           ELECT = replace_na(as.numeric(ELECT), 0),
+           ELECT_SURG = replace_na(as.numeric(ELECT_SURG), 0))
+    # NOTE: AGE, ICU_SRCE, and ICU_OUTCM are NOT imputed and retain their NAs for controlled dropping.
+
+current_count <- total_initial_rows
+attrition_data <- list()
+step_counter <- 1
+
+record_step <- function(description, removed_count, remaining_count) {
+  list(
+    Step = step_counter <<- step_counter + 1,
+    Description = description,
+    Records_Removed = removed_count,
+    Records_Remaining = remaining_count
+  )
+}
+
+# Add the starting row
+attrition_data[[1]] <- list(
+    Step = step_counter,
+    Description = "Initial Total Records in df1",
+    Records_Removed = 0,
+    Records_Remaining = current_count
+)
+step_counter <- step_counter + 1
+
+# Start filtering with the imputed data frame
+data_flow <- data_flow_imputed 
+
+# --- 2. Filter: JurisdictionName != "NZ" ---
+removed_2 <- data_flow %>% filter(JurisdictionName == "NZ") %>% nrow()
+data_flow <- data_flow %>% filter(JurisdictionName != "NZ")
+current_count <- nrow(data_flow)
+attrition_data[[2]] <- record_step("Exclude JurisdictionName == \"NZ\"", removed_2, current_count)
+
+# --- 3. Filter: year(ICU_AD_DTM) < 2020 ---
+removed_3 <- data_flow %>% filter(year(ICU_AD_DTM) >= 2020) %>% nrow()
+data_flow <- data_flow %>% filter(year(ICU_AD_DTM) < 2020)
+current_count <- nrow(data_flow)
+attrition_data[[3]] <- record_step("Exclude year(ICU_AD_DTM) >= 2020", removed_3, current_count)
+
+# --- 4. Filter: AGE >= 16 (DROP IF NA) ---
+removed_4_true <- data_flow %>% filter(AGE < 16) %>% nrow()
+removed_4_na <- sum(is.na(data_flow$AGE))
+removed_4_total <- removed_4_true + removed_4_na
+data_flow <- data_flow %>% filter(AGE >= 16)
+current_count <- nrow(data_flow)
+attrition_data[[4]] <- record_step("Exclude AGE < 16 OR AGE is NA (Drop NA)", removed_4_total, current_count)
+
+# --- 5. Filter: TREAT_LMT != "3" & TREAT_LMT != "4" (Imputed - Only TRUE removal) ---
+removed_5_total <- data_flow %>% filter(TREAT_LMT == "3" | TREAT_LMT == "4") %>% nrow()
+data_flow <- data_flow %>% filter(TREAT_LMT != "3" & TREAT_LMT != "4")
+current_count <- nrow(data_flow)
+attrition_data[[5]] <- record_step("Exclude TREAT_LMT == \"3\" OR \"4\" (NA assumed safe)", removed_5_total, current_count)
+
+# --- 6. Filter: ICU_SRCE != 5 & ICU_SRCE != 6 (DROP IF NA) ---
+condition_to_exclude_6 <- (data_flow$ICU_SRCE == 5 | data_flow$ICU_SRCE == 6)
+removed_6_true <- sum(condition_to_exclude_6 == TRUE, na.rm = TRUE)
+removed_6_na <- sum(is.na(data_flow$ICU_SRCE))
+removed_6_total <- removed_6_true + removed_6_na
+data_flow <- data_flow %>% filter(ICU_SRCE != 5 & ICU_SRCE != 6)
+current_count <- nrow(data_flow)
+attrition_data[[6]] <- record_step("Exclude ICU_SRCE == 5 OR 6 OR ICU_SRCE is NA (Drop NA)", removed_6_total, current_count)
+
+# --- 7. Filter: ICU_OUTCM != 5 (DROP IF NA) ---
+condition_to_exclude_7 <- (data_flow$ICU_OUTCM == 5)
+removed_7_true <- sum(condition_to_exclude_7 == TRUE, na.rm = TRUE)
+removed_7_na <- sum(is.na(data_flow$ICU_OUTCM))
+removed_7_total <- removed_7_true + removed_7_na
+data_flow <- data_flow %>% filter(ICU_OUTCM != 5)
+current_count <- nrow(data_flow)
+attrition_data[[7]] <- record_step("Exclude ICU_OUTCM == 5 OR ICU_OUTCM is NA (Drop NA)", removed_7_total, current_count)
+
+# --- 8. Final Filter: !((PLAN_ICU == 1 & ELECT_SURG == 1) | ELECT == 1) (Imputed - Only TRUE removal) ---
+removed_8_total <- data_flow %>% 
+  filter((PLAN_ICU == 1 & ELECT_SURG == 1) | ELECT == 1) %>% 
+  nrow()
+
+data_flow <- data_flow %>%
+  filter( !((PLAN_ICU == 1 & ELECT_SURG == 1) | ELECT == 1) )
+current_count <- nrow(data_flow)
+attrition_data[[8]] <- record_step(
+    description = "Exclude (P=1 & ES=1) OR E=1 (NA assumed safe)",
+    removed_count = removed_8_total,
+    remaining_count = current_count
+)
+
+
+# --- FINAL CALCULATION AND SELECTION ---
+
+Attrition_Table_Final <- bind_rows(attrition_data) %>%
+    # STEP A: Calculate all raw and base percentage metrics
+    mutate(
+        Cumulative_Removed = total_initial_rows - Records_Remaining,
+        Previous_Remaining = lag(Records_Remaining, default = total_initial_rows)
+    ) %>%
+    mutate(
+        Percent_Removed_At_This_Step = (Records_Removed / Previous_Remaining) * 100,
+        Percent_Removed_of_Initial = (Cumulative_Removed / total_initial_rows) * 100,
+        Percent_Remaining_of_Initial = (Records_Remaining / total_initial_rows) * 100
+    ) %>%
+    # STEP B: Perform rounding and final column selection/renaming
+    mutate(
+        `% Removed (of Prior Step)` = round(Percent_Removed_At_This_Step, 2),
+        `% Remaining (of Initial)` = round(Percent_Remaining_of_Initial, 2),
+        `% Removed (of Initial)` = round(Percent_Removed_of_Initial, 2)
+    ) %>%
+    select(
+        Step,
+        Description,
+        Records_Removed_At_This_Step = Records_Removed,
+        `% Removed (of Prior Step)`,
+        Records_Remaining,
+        `% Remaining (of Initial)`,
+        Cumulative_Removed,
+        `% Removed (of Initial)`
+    )
+
+# Print the final summary table
+print(Attrition_Table_Final)
+
 
 
 df1 = df1 %>%
