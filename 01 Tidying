@@ -11,7 +11,7 @@ APD %>%
     filter(JurisdictionName != "NZ") %>%
     filter(year(ICU_AD_DTM)<'2020') %>%
     filter(AGE >= 16) %>%
-    filter(PLAN_ICU !=1) %>%
+    filter(PLAN_ICU !=1 | ELECT !=1) %>%
     filter(TREAT_LMT != "3" & TREAT_LMT != "4") %>%
     filter(ICU_OUTCM != 5)  %>%
     filter(ICU_SRCE != 5 & ICU_SRCE !=6) %>%
