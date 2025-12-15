@@ -32,13 +32,13 @@ df1 <- df %>%
            ELECT = replace_na(as.numeric(ELECT), 0),
            ELECT_SURG = replace_na(as.numeric(ELECT_SURG), 0))
 
-#filter
+#create an attition matrix for the filter
 library(dplyr)
 library(lubridate)
 library(tidyr)
 library(tibble)
 
-# Assuming 'df1' is your data frame (or APD)
+# Assuming 'df1' is your data frame 
 data_flow <- df1 
 
 # --- 1. INITIAL SETUP & IMPUTATION (Fixed TREAT_LMT Type Error and Hybrid NA Logic) ---
