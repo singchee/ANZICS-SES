@@ -5,17 +5,6 @@ library(car)
 SEIFAscore = SEIFAscore %>%
     filter(`Advantage and Disadvtage Decile` != "-")
 
-
-APD %>%
-    filter(JurisdictionName != "NZ") %>%
-    filter(year(ICU_AD_DTM) < 2020) %>%
-    filter(AGE >= 16) %>%
-    filter( !(PLAN_ICU == 1 | ELECT == 1) ) %>%
-    filter(TREAT_LMT != "3" & TREAT_LMT != "4") %>%
-    filter(ICU_OUTCM != 5) %>%
-    filter(ICU_SRCE != 5 & ICU_SRCE != 6) %>%
-    nrow()
-
 df1= APD%>%
     select(c(PatientID, HospitalClassification, 
              JurisdictionName,postcode,SiteID, AGE, ELECT, SEX,AP3DIAG, AP3_SUBCODE, ELECT_SURG, READMITTED,
@@ -51,8 +40,7 @@ df1 = df1 %>%
     filter( !(PLAN_ICU == 1 | ELECT == 1) ) %>%
     filter(TREAT_LMT != "3" & TREAT_LMT != "4") %>%
     filter(ICU_OUTCM != 5) %>%
-    filter(ICU_SRCE != 5 & ICU_SRCE != 6) %>%
-    nrow()
+    filter(ICU_SRCE != 5 & ICU_SRCE != 6)
         
 Remoteness=Remoteness %>% distinct(POSTCODE, .keep_all=TRUE)
 
