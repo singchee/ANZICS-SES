@@ -2,24 +2,84 @@
 #TABLE 1
 
 library(tableone)
+library(dplyr) # Used for clarity in defining variables
 
-catVars=c("SEX","PLAN_ICU", "ICU_SRCE", "TREAT_LMT", "DIED_ICU","DIED_HOSP", "INOTROP_IND", "RENAL_IND", "ECMO_IND", "INV_IND","ELECT_SURG", "APACHE_diag")
+# Assuming 'df3_ANZROD' is your data frame
 
-tab = CreateTableOne(data = df3_ANZROD, vars =c("SEX", "AGE", "PLAN_ICU", "ELECT_SURG", "ICU_SRCE", "TREAT_LMT",  "HospitalClassification", "Apache3Score","ANZROD", 
-                                                "DIED_ICU","DIED_HOSP", 
-                                                "HOSP_HRS", "ICU_HRS", 
-                                                "ECMO_IND", "INV_IND", "RENAL_IND", "INOTROP_IND", "APACHE_diag"), strata= "IRSEAD_quart", factorVars = catVars)
+# --- 1. Define Variable Lists for Clarity and Reusability ---
 
+# List of all variables to include in the table
+all_vars <- c(
+    "SEX", "AGE", "PLAN_ICU", "ELECT_SURG", "ICU_SRCE", "TREAT_LMT", 
+    "HospitalClassification", "Apache3Score", "ANZROD", "DIED_ICU", "DIED_HOSP", 
+    "HOSP_HRS", "ICU_HRS", "ECMO_IND", "INV_IND", "RENAL_IND", "INOTROP_IND", 
+    "APACHE_diag"
+)
 
-tab_all = CreateTableOne(data = df3_ANZROD, vars =c("SEX", "AGE", "PLAN_ICU", "ELECT_SURG",  "ICU_SRCE", "TREAT_LMT", "HospitalClassification", "Apache3Score","ANZROD", 
-                                                "DIED_ICU","DIED_HOSP", 
-                                                "HOSP_HRS", "ICU_HRS", 
-                                                "ECMO_IND", "INV_IND", "RENAL_IND", "INOTROP_IND", "APACHE_diag"), factorVars = catVars)
+# List of categorical (factor) variables
+factor_vars <- c(
+    "SEX", "PLAN_ICU", "ICU_SRCE", "TREAT_LMT", "DIED_ICU", "DIED_HOSP", 
+    "INOTROP_IND", "RENAL_IND", "ECMO_IND", "INV_IND", "ELECT_SURG", "APACHE_diag",
+    "HospitalClassification" # Added: This is often categorical
+)
 
-nonnormalVars = c("AGE", "Apache2Score", "Apache3Score","ANZROD", "HOSP_HRS", "ICU_HRS")
+# List of variables assumed to be non-normally distributed (will use median/IQR)
+nonnormal_vars <- c("AGE", "Apache3Score", "ANZROD", "HOSP_HRS", "ICU_HRS")
 
-tab1_merged=cbind(print(tab_all, nonnormal=nonnormalVars), print(tab, nonnormal=nonnormalVars))
-write.csv(tab1_merged, file="tab1_merged.csv")
+# --- 2. Generate the Unstratified Table (Total Cohort) ---
+
+# Note: Using your original logic (no p-values, only Standardized Mean Difference)
+tab_total <- CreateTableOne(
+    vars = all_vars, 
+    data = df3_ANZROD, 
+    factorVars = factor_vars,
+    test = FALSE,      # Suppress p-values
+    smd = TRUE         # Calculate Standardized Mean Difference
+)
+
+# --- 3. Generate the Stratified Table (By IRSEAD_quart) ---
+
+# Note: We will follow best practice and use Standardized Differences (SMD)
+# for stratification on large datasets instead of p-values.
+tab_stratified <- CreateTableOne(
+    vars = all_vars, 
+    strata = "IRSEAD_quart", 
+    data = df3_ANZROD,
+    factorVars = factor_vars,
+    test = FALSE,      # Suppress p-values
+    smd = TRUE         # Calculate Standardized Mean Difference (Crucial for stratification)
+)
+
+# --- 4. Merge and Export Results ---
+
+# Print the tables, forcing non-normal summaries, and converting to data frames
+# for combination. The 'smd=TRUE' ensures the Stratified table includes the Std.Diff column.
+
+# Print Total Cohort table (First column)
+tab_total_df <- print(
+    tab_total, 
+    nonnormal = nonnormal_vars, 
+    smd = TRUE, 
+    quote = FALSE, 
+    noSpaces = TRUE, 
+    printToggle = FALSE
+)
+
+# Print Stratified table (Subsequent columns)
+tab_stratified_df <- print(
+    tab_stratified, 
+    nonnormal = nonnormal_vars, 
+    smd = TRUE, 
+    quote = FALSE, 
+    noSpaces = TRUE, 
+    printToggle = FALSE
+)
+
+# Use cbind to combine the two tables and export the final result
+tab1_merged <- cbind(tab_total_df, tab_stratified_df)
+
+# Write the combined table to a CSV file
+write.csv(tab1_merged, file = "tab1_merged_rewritten.csv")
 
 
 
