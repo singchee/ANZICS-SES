@@ -46,7 +46,6 @@ df1 = df1 %>%
 Remoteness=Remoteness %>% distinct(POSTCODE, .keep_all=TRUE)
 
 df2 = df1 %>%
-    merge(SEIFAscore[,c("Postcode", "Disadvantage Decile") ], by.x= 'postcode', by.y='Postcode', all.x=FALSE) %>%
     merge(SEIFAscore[,c("Postcode", "Advantage and Disadvtage Decile") ], by.x= 'postcode', by.y='Postcode') %>%
     merge(Remoteness[,c("POSTCODE", "Remoteness Index") ], by.x= 'postcode', by.y='POSTCODE') %>%
     rename(IRSED = 'Disadvantage Decile') %>%
