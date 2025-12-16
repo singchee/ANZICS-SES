@@ -1,4 +1,9 @@
 
+library(lme4)
+library(ggplot2)
+library(dplyr)
+library(broom.mixed)
+
 mod_IRSEAD = glmer(DIED_HOSP ~ ANZROD + 
 	relevel(IRSEAD, ref= 10) + 
 	relevel(Remoteness, ref= 1) + 
@@ -13,13 +18,11 @@ eff_IRSEAD = mod_IRSEAD %>%
     mutate(across(c(estimate, starts_with("conf")), exp)) %>%
     mutate(IRSEAD = as.factor(seq_along(1:nrow(.))))
     
-library(ggplot2)
-library(dplyr)
 
 theme_set(theme_bw(base_size = 14))
 
-eff_IRSAD %>%
-  ggplot(aes(x = factor(IRSAD), y = estimate)) +
+eff_IRSEAD %>%
+  ggplot(aes(x = factor(IRSEAD), y = estimate)) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.8) +
   geom_point(size = 3, color = "#1b9e77") +
   geom_linerange(aes(ymin = conf.low, ymax = conf.high),
